@@ -28,6 +28,7 @@ class MapActivity : ComponentActivity(), OnMapReadyCallback {
     private var googleMap: GoogleMap? = null
     private var selectedLatLng: LatLng? = null
     private var marker: Marker? = null
+    private var selectedTitle: String = ""
 
     private val fusedLocationClient by lazy {
         LocationServices.getFusedLocationProviderClient(this)
@@ -57,6 +58,7 @@ class MapActivity : ComponentActivity(), OnMapReadyCallback {
                                 val intent = Intent().apply {
                                     putExtra("lat", selectedLatLng!!.latitude)
                                     putExtra("lng", selectedLatLng!!.longitude)
+                                    putExtra("title", selectedTitle)
                                 }
                                 setResult(RESULT_OK, intent)
                                 finish()
@@ -69,7 +71,7 @@ class MapActivity : ComponentActivity(), OnMapReadyCallback {
 
                 LaunchedEffect(Unit) {
                     mapView.getMapAsync { map ->
-                        map.setOnMapClickListener { latLng ->
+                        map.setOnMapLongClickListener { latLng ->
                             marker?.remove()
                             marker = map.addMarker(
                                 MarkerOptions().position(latLng).title("Wybrane miejsce")
@@ -77,8 +79,27 @@ class MapActivity : ComponentActivity(), OnMapReadyCallback {
                             selectedLatLng = latLng
                             showAddButton = true
                         }
+
+                        map.setOnMarkerClickListener { clickedMarker ->
+                            selectedLatLng = clickedMarker.position
+                            marker = clickedMarker
+                            showAddButton = true
+                            false
+                        }
+
+                        map.setOnPoiClickListener { poi ->
+                            marker?.remove()
+                            marker = map.addMarker(
+                                MarkerOptions().position(poi.latLng).title(poi.name)
+                            )
+                            marker?.showInfoWindow()
+                            selectedLatLng = poi.latLng
+                            selectedTitle = poi.name
+                            showAddButton = true
+                        }
                     }
                 }
+
             }
         }
     }

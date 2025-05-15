@@ -42,8 +42,9 @@ fun LocationInputWithMapSelector() {
         if (result.resultCode == Activity.RESULT_OK) {
             val lat = result.data?.getDoubleExtra("lat", 0.0)
             val lng = result.data?.getDoubleExtra("lng", 0.0)
+            var title = result.data?.getStringExtra("title") ?: "Brak danych"
             if (lat != null && lng != null) {
-                locationText = "$lat, $lng"
+                locationText = "$title ($lat, $lng)"
             }
         }
     }
