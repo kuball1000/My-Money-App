@@ -1,73 +1,38 @@
 package com.example.mymonkey
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.viewinterop.AndroidView
-import com.google.android.gms.maps.CameraUpdateFactory
-import com.google.android.gms.maps.GoogleMapOptions
-import com.google.android.gms.maps.MapView
-import com.google.android.gms.maps.OnMapReadyCallback
-import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.MarkerOptions
+import androidx.compose.ui.unit.dp
 import com.example.mymonkey.ui.theme.MyMonkeyTheme
 
-class MainActivity : ComponentActivity(), OnMapReadyCallback {
-
-    private lateinit var mapView: MapView
-
+class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        mapView = MapView(this)
-        mapView.onCreate(savedInstanceState)
-        mapView.getMapAsync(this)
-
-        enableEdgeToEdge()
         setContent {
             MyMonkeyTheme {
-                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    MapScreen(mapView)
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Button(onClick = {
+                            startActivity(Intent(this@MainActivity, MapActivity::class.java))
+                        }) {
+                            Text("Pokaż Mapę")
+                        }
+                    }
                 }
             }
         }
     }
-
-    override fun onMapReady(googleMap: com.google.android.gms.maps.GoogleMap) {
-        val location = LatLng(52.2297, 21.0122) // Warszawa
-        googleMap.addMarker(MarkerOptions().position(location).title("Marker in Warsaw"))
-        googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(location, 10f))
-    }
-
-    // Pamiętaj o forwardowaniu cyklu życia MapView
-    override fun onResume() {
-        super.onResume()
-        mapView.onResume()
-    }
-
-    override fun onPause() {
-        super.onPause()
-        mapView.onPause()
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        mapView.onDestroy()
-    }
-
-    override fun onLowMemory() {
-        super.onLowMemory()
-        mapView.onLowMemory()
-    }
-}
-
-@Composable
-fun MapScreen(mapView: MapView) {
-    AndroidView(factory = { mapView })
 }
