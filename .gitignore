@@ -13,3 +13,45 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Android Studio
+.idea/
+.gradle/
+local.properties
+*.iml
+
+# Build
+/build/
+**/build/
+
+# OS generated
+.DS_Store
+Thumbs.db
+
+# Keystore and secrets
+secrets.properties
+*.keystore
+
+# Gradle wrapper logs
+gradlew.bat
+gradlew
+!gradlew.bat
+!gradlew
+
+# Kotlin and Java specific
+*.class
+*.jar
+*.war
+*.ear
+
+# Firebase
+google-services.json
+
+# Logs
+*.log
+
+# Crashlytics
+crashlytics-build.properties
+
+# Misc
+.cxx/
