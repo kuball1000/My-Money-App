@@ -1,5 +1,6 @@
 package com.example.mymonkey
 
+import android.app.Activity
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -7,58 +8,105 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.example.mymonkey.ui.theme.MyMonkeyTheme
 
 @Composable
 fun AddExpenseScreen(
-    onAdd: (String, Double) -> Unit,
+    onAdd: (String, Double, String) -> Unit,
     onCancel: () -> Unit
 ) {
     var description by remember { mutableStateOf("") }
     var amountText by remember { mutableStateOf("") }
+    var locationText by remember { mutableStateOf("") }
     val context = LocalContext.current
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        Text("Dodaj nowy wydatek", style = MaterialTheme.typography.headlineSmall)
-
-        OutlinedTextField(
-            value = description,
-            onValueChange = { description = it },
-            label = { Text("Opis wydatku") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 16.dp)
-        )
-
-        OutlinedTextField(
-            value = amountText,
-            onValueChange = { amountText = it },
-            label = { Text("Kwota") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp)
-        )
-
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Button(onClick = onCancel, modifier = Modifier.weight(1f)) {
-                Text("Anuluj")
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val lat = result.data?.getDoubleExtra("lat", 0.0)
+            val lng = result.data?.getDoubleExtra("lng", 0.0)
+            val title = result.data?.getStringExtra("title") ?: "Brak danych"
+            if (lat != null && lng != null) {
+                locationText = "$title ($lat, $lng)"
             }
-            Spacer(modifier = Modifier.width(8.dp))
+        }
+    }
+
+    // 👇 Surface to apply MaterialTheme color background
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
+            Text("Dodaj nowy wydatek", style = MaterialTheme.typography.headlineSmall)
+
+            OutlinedTextField(
+                value = description,
+                onValueChange = { description = it },
+                label = { Text("Opis wydatku") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp)
+            )
+
+            OutlinedTextField(
+                value = amountText,
+                onValueChange = { amountText = it },
+                label = { Text("Kwota") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+            )
+
+            OutlinedTextField(
+                value = locationText,
+                onValueChange = {},
+                label = { Text("Lokalizacja") },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = false
+            )
+
             Button(
                 onClick = {
-                    val amount = amountText.toDoubleOrNull()
-                    if (description.isNotBlank() && amount != null) {
-                        onAdd(description, amount)
-                    } else {
-                        Toast.makeText(context, "Wprowadź poprawne dane", Toast.LENGTH_SHORT).show()
-                    }
+                    val intent = Intent(context, MapActivity::class.java)
+                    launcher.launch(intent)
                 },
-                modifier = Modifier.weight(1f)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
             ) {
-                Text("Dodaj")
+                Text("Wybierz lokalizację na mapie")
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Button(onClick = onCancel, modifier = Modifier.weight(1f)) {
+                    Text("Anuluj")
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Button(
+                    onClick = {
+                        val amount = amountText.toDoubleOrNull()
+                        if (description.isNotBlank() && amount != null) {
+                            onAdd(description, amount, locationText)
+                        } else {
+                            Toast.makeText(context, "Wprowadź poprawne dane", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Dodaj")
+                }
             }
         }
     }
