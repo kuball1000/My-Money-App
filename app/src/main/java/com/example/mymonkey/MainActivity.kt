@@ -6,6 +6,14 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.navigation.compose.*
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -19,55 +27,73 @@ import com.example.mymonkey.ui.theme.MyMonkeyTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         setContent {
-            MyMonkeyTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
-                    LocationInputWithMapSelector()
-                }
-            }
+            ExpenseApp()
         }
     }
 }
 
 @Composable
-fun LocationInputWithMapSelector() {
-    val context = LocalContext.current
-    var locationText by remember { mutableStateOf("") }
+fun ExpenseApp() {
+    val navController = rememberNavController()
+    val expenses = remember { mutableStateListOf<Pair<String, Double>>() }
 
-    // Launcher do odbierania wyniku z MapActivity
-    val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            val lat = result.data?.getDoubleExtra("lat", 0.0)
-            val lng = result.data?.getDoubleExtra("lng", 0.0)
-            var title = result.data?.getStringExtra("title") ?: "Brak danych"
-            if (lat != null && lng != null) {
-                locationText = "$title ($lat, $lng)"
-            }
+    NavHost(navController = navController, startDestination = "home") {
+        composable("home") {
+            HomeScreen(
+                expenses = expenses,
+                onAddExpenseClick = { navController.navigate("add") }
+            )
+        }
+        composable("add") {
+            AddExpenseScreen(
+                onAdd = { description, amount ->
+                    expenses.add(description to amount)
+                    navController.popBackStack()
+                },
+                onCancel = { navController.popBackStack() }
+            )
         }
     }
+}
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        OutlinedTextField(
-            value = locationText,
-            onValueChange = { locationText = it },
-            label = { Text("Lokalizacja") },
-            modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        Button(onClick = {
-            val intent = Intent(context, MapActivity::class.java)
-            launcher.launch(intent)
-        }) {
-            Text("Wybierz na mapie")
+@Composable
+fun HomeScreen(expenses: List<Pair<String, Double>>, onAddExpenseClick: () -> Unit) {
+    val total = expenses.sumOf { it.second }
+
+    Scaffold(
+        floatingActionButton = {
+            FloatingActionButton(onClick = onAddExpenseClick) {
+                Text("+")
+            }
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .padding(16.dp)
+        ) {
+            Text(
+                text = "Suma: ${String.format("%.2f", total)} zł",
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+
+            LazyColumn {
+                items(expenses) { (desc, amt) ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        elevation = CardDefaults.cardElevation(4.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(desc, style = MaterialTheme.typography.titleMedium)
+                            Text("${String.format("%.2f", amt)} zł", style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+            }
         }
     }
 }
