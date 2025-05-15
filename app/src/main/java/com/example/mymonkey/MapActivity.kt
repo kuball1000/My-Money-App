@@ -21,6 +21,8 @@ import com.example.mymonkey.ui.theme.MyMonkeyTheme
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.*
 import com.google.android.gms.maps.model.*
+import android.location.Geocoder
+import java.util.Locale
 
 class MapActivity : ComponentActivity(), OnMapReadyCallback {
 
@@ -77,6 +79,8 @@ class MapActivity : ComponentActivity(), OnMapReadyCallback {
                                 MarkerOptions().position(latLng).title("Wybrane miejsce")
                             )
                             selectedLatLng = latLng
+                            val address = getAddressFromLatLng(latLng)
+                            selectedTitle = address
                             showAddButton = true
                         }
 
@@ -94,7 +98,8 @@ class MapActivity : ComponentActivity(), OnMapReadyCallback {
                             )
                             marker?.showInfoWindow()
                             selectedLatLng = poi.latLng
-                            selectedTitle = poi.name
+                            val address = getAddressFromLatLng(poi.latLng)
+                            selectedTitle = "${poi.name}, $address"
                             showAddButton = true
                         }
                     }
@@ -143,6 +148,25 @@ class MapActivity : ComponentActivity(), OnMapReadyCallback {
         )
         selectedLatLng = warsaw
     }
+
+    private fun getAddressFromLatLng(latLng: LatLng): String {
+        return try {
+            val geocoder = Geocoder(this, Locale.getDefault())
+            val addresses = geocoder.getFromLocation(latLng.latitude, latLng.longitude, 1)
+            if (!addresses.isNullOrEmpty()) {
+                val address = addresses[0]
+                val street = address.thoroughfare ?: ""
+                val number = address.subThoroughfare ?: ""
+                val city = address.locality ?: ""
+                "$street $number, $city".trim()
+            } else {
+                "Nieznany adres"
+            }
+        } catch (e: Exception) {
+            "Nieznany adres"
+        }
+    }
+
 
     private val requestPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
