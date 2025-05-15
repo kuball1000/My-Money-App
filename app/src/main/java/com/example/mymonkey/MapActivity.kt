@@ -1,41 +1,36 @@
 package com.example.mymonkey
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
-import android.location.LocationManager
 import android.os.Bundle
-import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.example.mymonkey.ui.theme.MyMonkeyTheme
-import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
-import com.google.android.gms.maps.CameraUpdateFactory
-import com.google.android.gms.maps.GoogleMap
-import com.google.android.gms.maps.MapView
-import com.google.android.gms.maps.OnMapReadyCallback
-import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.MarkerOptions
+import com.google.android.gms.maps.*
+import com.google.android.gms.maps.model.*
 
 class MapActivity : ComponentActivity(), OnMapReadyCallback {
 
     private lateinit var mapView: MapView
-    private lateinit var fusedLocationClient: FusedLocationProviderClient
     private var googleMap: GoogleMap? = null
-    private lateinit var requestPermissionLauncher: androidx.activity.result.ActivityResultLauncher<String>
+    private var selectedLatLng: LatLng? = null
+    private var marker: Marker? = null
 
-    companion object {
-        private const val LOCATION_PERMISSION_REQUEST_CODE = 1001
-        private val DEFAULT_LOCATION = LatLng(52.2297, 21.0122) // Warszawa
+    private val fusedLocationClient by lazy {
+        LocationServices.getFusedLocationProviderClient(this)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -45,23 +40,44 @@ class MapActivity : ComponentActivity(), OnMapReadyCallback {
         mapView.onCreate(savedInstanceState)
         mapView.getMapAsync(this)
 
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
-
-        requestPermissionLauncher = registerForActivityResult(
-            androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
-        ) { isGranted: Boolean ->
-            if (isGranted) {
-                handleLocationLogic()
-            } else {
-                Toast.makeText(this, "Brak zgody na lokalizację. Pokazuję Warszawę.", Toast.LENGTH_SHORT).show()
-                showDefaultLocation()
-            }
-        }
-
         setContent {
             MyMonkeyTheme {
-                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    MapScreen(mapView)
+                var showAddButton by remember { mutableStateOf(false) }
+
+                Box(modifier = Modifier.fillMaxSize()) {
+                    AndroidView(factory = { mapView }, modifier = Modifier.fillMaxSize())
+
+                    if (showAddButton && selectedLatLng != null) {
+                        Column(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(16.dp)
+                        ) {
+                            Button(onClick = {
+                                val intent = Intent().apply {
+                                    putExtra("lat", selectedLatLng!!.latitude)
+                                    putExtra("lng", selectedLatLng!!.longitude)
+                                }
+                                setResult(RESULT_OK, intent)
+                                finish()
+                            }) {
+                                Text("Dodaj lokalizację")
+                            }
+                        }
+                    }
+                }
+
+                LaunchedEffect(Unit) {
+                    mapView.getMapAsync { map ->
+                        map.setOnMapClickListener { latLng ->
+                            marker?.remove()
+                            marker = map.addMarker(
+                                MarkerOptions().position(latLng).title("Wybrane miejsce")
+                            )
+                            selectedLatLng = latLng
+                            showAddButton = true
+                        }
+                    }
                 }
             }
         }
@@ -69,45 +85,55 @@ class MapActivity : ComponentActivity(), OnMapReadyCallback {
 
     override fun onMapReady(gMap: GoogleMap) {
         googleMap = gMap
-        handleLocationLogic()
+        enableUserLocation()
     }
 
-    private fun handleLocationLogic() {
+    private fun enableUserLocation() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
             == PackageManager.PERMISSION_GRANTED
         ) {
-            val locationManager = getSystemService(LOCATION_SERVICE) as LocationManager
-            if (!locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-                Toast.makeText(this, "GPS jest wyłączony. Pokazuję Warszawę.", Toast.LENGTH_SHORT).show()
-                showDefaultLocation()
-                return
-            }
-
             googleMap?.isMyLocationEnabled = true
             fusedLocationClient.lastLocation.addOnSuccessListener { location ->
                 if (location != null) {
                     val userLatLng = LatLng(location.latitude, location.longitude)
-                    googleMap?.addMarker(MarkerOptions().position(userLatLng).title("Twoja lokalizacja"))
                     googleMap?.moveCamera(CameraUpdateFactory.newLatLngZoom(userLatLng, 15f))
+                    marker?.remove()
+                    marker = googleMap?.addMarker(
+                        MarkerOptions().position(userLatLng).title("Twoja lokalizacja")
+                    )
+                    selectedLatLng = userLatLng
                 } else {
-                    Toast.makeText(this, "Nie udało się pobrać lokalizacji. Pokazuję Warszawę.", Toast.LENGTH_SHORT).show()
-                    showDefaultLocation()
+                    showWarsaw()
                 }
             }.addOnFailureListener {
-                Toast.makeText(this, "Błąd lokalizacji. Pokazuję Warszawę.", Toast.LENGTH_SHORT).show()
-                showDefaultLocation()
+                showWarsaw()
             }
         } else {
             requestPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
         }
     }
 
-    private fun showDefaultLocation() {
-        googleMap?.addMarker(MarkerOptions().position(DEFAULT_LOCATION).title("Warszawa"))
-        googleMap?.moveCamera(CameraUpdateFactory.newLatLngZoom(DEFAULT_LOCATION, 12f))
+    private fun showWarsaw() {
+        val warsaw = LatLng(52.2297, 21.0122)
+        googleMap?.moveCamera(CameraUpdateFactory.newLatLngZoom(warsaw, 12f))
+        marker?.remove()
+        marker = googleMap?.addMarker(
+            MarkerOptions().position(warsaw).title("Warszawa")
+        )
+        selectedLatLng = warsaw
     }
 
-    // Cykl życia MapView
+    private val requestPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+            if (isGranted) {
+                enableUserLocation()
+            } else {
+                Toast.makeText(this, "Brak zgody na lokalizację. Pokazuję Warszawę.", Toast.LENGTH_SHORT).show()
+                showWarsaw()
+            }
+        }
+
+    // MapView lifecycle forwarding
     override fun onResume() {
         super.onResume()
         mapView.onResume()
@@ -118,18 +144,13 @@ class MapActivity : ComponentActivity(), OnMapReadyCallback {
         mapView.onPause()
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        mapView.onDestroy()
-    }
-
     override fun onLowMemory() {
         super.onLowMemory()
         mapView.onLowMemory()
     }
-}
 
-@Composable
-fun MapScreen(mapView: MapView) {
-    AndroidView(factory = { mapView })
+    override fun onDestroy() {
+        mapView.onDestroy()
+        super.onDestroy()
+    }
 }
