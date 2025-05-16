@@ -109,18 +109,20 @@ fun AddExpenseScreen(
                     onClick = {
                         val amount = amountText.toDoubleOrNull()
                         if (description.isNotBlank() && amount != null) {
-                            onAdd(description, amount, locationText) // lokalnie
+                            val locationName = locationText.substringBefore(" (").trim()
+                            val coordinates = Regex("\\(([^)]+)\\)").find(locationText)?.groupValues?.get(1) ?: ""
+
+//                            onAdd(description, amount, locationText) // lokalnie
 
                             scope.launch {
                                 val success = sendExpenseToSupabase(
                                     userId = userId,
                                     description = description,
                                     amount = amount,
-                                    location = locationText,
-                                    coordinates = "", // podaj współrzędne jak chcesz
+                                    location = locationName,
+                                    coordinates = coordinates,
                                     apiKey = apiKey
                                 )
-                                Toast.makeText(context, "asd ${userId}", Toast.LENGTH_SHORT ).show()
                                 if (!success) {
                                     Toast.makeText(context, "Błąd zapisu do bazy", Toast.LENGTH_SHORT).show()
                                 }
