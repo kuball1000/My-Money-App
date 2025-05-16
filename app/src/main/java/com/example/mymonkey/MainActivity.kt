@@ -36,7 +36,10 @@ fun ExpenseApp() {
     val navController = rememberNavController()
     val expenses = remember { mutableStateListOf<Triple<String, Double, String>>() }
 
-    NavHost(navController = navController, startDestination = "home") {
+    NavHost(navController = navController, startDestination = "login") {
+        composable("login") {
+            LoginScreen(onLoginSuccess = { navController.navigate("home") })
+        }
         composable("home") {
             HomeScreen(
                 expenses = expenses,
