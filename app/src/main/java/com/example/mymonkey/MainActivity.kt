@@ -19,6 +19,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.*
 import com.example.mymonkey.ui.theme.MyMonkeyTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.MediaType.Companion.toMediaType
+import org.json.JSONObject
+
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -99,6 +108,44 @@ fun HomeScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+suspend fun sendExpenseToSupabase(
+    userId: Int,
+    description: String,
+    amount: Double,
+    location: String,
+    coordinates: String,
+    apiKey: String?
+): Boolean {
+    return withContext(Dispatchers.IO) {
+        try {
+            val json = JSONObject().apply {
+                put("user_id", userId)
+                put("description", description)
+                put("amount", amount)
+                put("location", location)
+                put("coordinates", coordinates)
+            }
+
+            val requestBody = json.toString()
+                .toRequestBody("application/json".toMediaType())
+
+            val request = Request.Builder()
+                .url("https://hveselshovofxxwuozqj.supabase.co/rest/v1/expenses")
+                .header("apikey", apiKey ?: "")
+                .header("Authorization", "Bearer ${apiKey ?: ""}")
+                .header("Content-Type", "application/json")
+                .header("Prefer", "return=minimal")
+                .post(requestBody)
+                .build()
+
+            val response = OkHttpClient().newCall(request).execute()
+            response.isSuccessful
+        } catch (e: Exception) {
+            false
         }
     }
 }

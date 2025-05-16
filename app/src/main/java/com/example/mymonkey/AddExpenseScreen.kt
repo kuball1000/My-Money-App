@@ -1,6 +1,7 @@
 package com.example.mymonkey
 
 import android.app.Activity
+import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -12,6 +13,8 @@ import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.example.mymonkey.ui.theme.MyMonkeyTheme
+import kotlinx.coroutines.launch
+
 
 @Composable
 fun AddExpenseScreen(
@@ -22,6 +25,8 @@ fun AddExpenseScreen(
     var amountText by remember { mutableStateOf("") }
     var locationText by remember { mutableStateOf("") }
     val context = LocalContext.current
+    val apiKey = getMetaData(context, "SUPABASE_API_KEY")
+    val coordinates = Regex("\\(([^)]+)\\)").find(locationText)?.groupValues?.get(1) ?: ""
 
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -94,11 +99,32 @@ fun AddExpenseScreen(
                     Text("Anuluj")
                 }
                 Spacer(modifier = Modifier.width(8.dp))
+                val scope = rememberCoroutineScope()
+                val context = LocalContext.current
+                val apiKey = getMetaData(context, "SUPABASE_API_KEY")
+                val sharedPreferences = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+                val userId = sharedPreferences.getInt("user_id", -1)
+
                 Button(
                     onClick = {
                         val amount = amountText.toDoubleOrNull()
                         if (description.isNotBlank() && amount != null) {
-                            onAdd(description, amount, locationText)
+                            onAdd(description, amount, locationText) // lokalnie
+
+                            scope.launch {
+                                val success = sendExpenseToSupabase(
+                                    userId = userId,
+                                    description = description,
+                                    amount = amount,
+                                    location = locationText,
+                                    coordinates = "", // podaj współrzędne jak chcesz
+                                    apiKey = apiKey
+                                )
+                                Toast.makeText(context, "asd ${userId}", Toast.LENGTH_SHORT ).show()
+                                if (!success) {
+                                    Toast.makeText(context, "Błąd zapisu do bazy", Toast.LENGTH_SHORT).show()
+                                }
+                            }
                         } else {
                             Toast.makeText(context, "Wprowadź poprawne dane", Toast.LENGTH_SHORT).show()
                         }
