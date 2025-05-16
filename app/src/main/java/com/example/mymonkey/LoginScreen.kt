@@ -26,6 +26,7 @@ import okhttp3.Request
 import org.json.JSONArray
 import java.net.URLEncoder
 import java.security.MessageDigest
+import androidx.core.content.edit
 
 @Composable
 fun LoginScreen(onLoginSuccess: () -> Unit) {
@@ -66,15 +67,16 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
 
         Button(onClick = {
             scope.launch {
-                val (success, errorMessage) = checkLogin(login, hashPassword(password), apiKey)
-                if (success) {
+                val (success, userId) = checkLogin(login, hashPassword(password), apiKey)
+                Toast.makeText(context, "as ${userId}", Toast.LENGTH_SHORT).show()
+                if (success && userId != null) {
+                    val sharedPreferences = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+                    sharedPreferences.edit() {
+                        putInt("user_id", userId)
+                    }
                     onLoginSuccess()
                 } else {
-                    Toast.makeText(
-                        context,
-                        errorMessage ?: "Błędny login lub hasło",
-                        Toast.LENGTH_LONG
-                    ).show()
+                    Toast.makeText(context, "Błędny login lub hasło", Toast.LENGTH_LONG).show()
                 }
             }
         }) {
@@ -83,7 +85,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
     }
 }
 
-suspend fun checkLogin(login: String, password: String, apiKey: String?): Pair<Boolean, String?> {
+suspend fun checkLogin(login: String, password: String, apiKey: String?): Pair<Boolean, Int?> {
     return withContext(Dispatchers.IO) {
         try {
 
@@ -102,14 +104,16 @@ suspend fun checkLogin(login: String, password: String, apiKey: String?): Pair<B
             val response = OkHttpClient().newCall(request).execute()
             val responseBody = response.body?.string()
 
-            if (response.isSuccessful) {
+            if (response.isSuccessful && !responseBody.isNullOrBlank()) {
                 val users = JSONArray(responseBody)
-                Pair(users.length() > 0, null)
-            } else {
-                Pair(false, "HTTP ${response.code}: ${responseBody}")
+                if (users.length() > 0) {
+                    val userId = users.getJSONObject(0).getInt("id")
+                    return@withContext Pair(true, userId)
+                }
             }
+            Pair(false, null)
         } catch (e: Exception) {
-            Pair(false, "Exception: ${e.localizedMessage}")
+            Pair(false, null)
         }
     }
 }
