@@ -161,37 +161,32 @@ fun HomeScreen(
     val sharedPreferences = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
     val userId = sharedPreferences.getInt("user_id", -1)
     val scope = rememberCoroutineScope()
-
-    fun refreshExpenses() {
-        scope.launch {
-            if (userId != -1 && apiKey != null) {
-                val fetched = fetchExpensesForUser(userId, apiKey)
-                expenses.clear()
-                expenses.addAll(fetched)
-
-                val cachedJson = JSONArray().apply {
-                    fetched.forEach { expense ->
-                        put(
-                            JSONObject().apply {
-                                put("id", expense.id)
-                                put("description", expense.description)
-                                put("amount", expense.amount)
-                                put("location", expense.location)
-                                put("coordinates", expense.coordinates)
-                            }
-                        )
-                    }
-                }.toString()
-
-                sharedPreferences.edit()
-                    .putString("cached_expenses", cachedJson)
-                    .apply()
-            }
-        }
-    }
+    val deletingIds = remember { mutableStateListOf<Int>() }
 
     LaunchedEffect(userId) {
-        refreshExpenses()
+        if (userId != -1 && apiKey != null) {
+            val fetched = fetchExpensesForUser(userId, apiKey)
+            expenses.clear()
+            expenses.addAll(fetched)
+
+            val cachedJson = JSONArray().apply {
+                fetched.forEach { expense ->
+                    put(
+                        JSONObject().apply {
+                            put("id", expense.id)
+                            put("description", expense.description)
+                            put("amount", expense.amount)
+                            put("location", expense.location)
+                            put("coordinates", expense.coordinates)
+                        }
+                    )
+                }
+            }.toString()
+
+            sharedPreferences.edit()
+                .putString("cached_expenses", cachedJson)
+                .apply()
+        }
     }
 
     val total = expenses.sumOf { it.amount }
@@ -216,11 +211,12 @@ fun HomeScreen(
 
             LazyColumn {
                 items(expenses) { expense ->
+                    val isDeleting = expense.id in deletingIds
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 4.dp)
-                            .clickable { onEditExpense(expense) },
+                            .clickable(enabled = !isDeleting) { onEditExpense(expense) },
                         elevation = CardDefaults.cardElevation(4.dp)
                     ) {
                         Row(
@@ -236,16 +232,37 @@ fun HomeScreen(
                                 Text("Lokalizacja: ${expense.location}", style = MaterialTheme.typography.bodySmall)
                                 Text("Koordynaty: ${expense.coordinates}", style = MaterialTheme.typography.bodySmall)
                             }
-                            IconButton(onClick = {
-                                scope.launch {
-                                    onDeleteExpense(expense)
-                                    refreshExpenses()
+                            if (isDeleting) {
+                                CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                            } else {
+                                IconButton(onClick = {
+                                    deletingIds.add(expense.id)
+                                    scope.launch {
+                                        // Remove from UI and cache first
+                                        expenses.remove(expense)
+                                        val current = sharedPreferences.getString("cached_expenses", null)
+                                        current?.let {
+                                            val updatedArray = JSONArray(it).let { arr ->
+                                                JSONArray().apply {
+                                                    for (i in 0 until arr.length()) {
+                                                        val obj = arr.getJSONObject(i)
+                                                        if (obj.getInt("id") != expense.id) {
+                                                            put(obj)
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            sharedPreferences.edit().putString("cached_expenses", updatedArray.toString()).apply()
+                                        }
+                                        onDeleteExpense(expense)
+                                        deletingIds.remove(expense.id)
+                                    }
+                                }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Usuń"
+                                    )
                                 }
-                            }) {
-                                Icon(
-                                    imageVector = Icons.Default.Delete,
-                                    contentDescription = "Usuń"
-                                )
                             }
                         }
                     }
@@ -254,6 +271,8 @@ fun HomeScreen(
         }
     }
 }
+
+
 
 
 
