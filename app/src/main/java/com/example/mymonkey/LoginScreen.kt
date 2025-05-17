@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -27,6 +28,7 @@ import org.json.JSONArray
 import java.net.URLEncoder
 import java.security.MessageDigest
 import androidx.core.content.edit
+import androidx.compose.material3.*
 
 @Composable
 fun LoginScreen(onLoginSuccess: () -> Unit) {
@@ -36,51 +38,83 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
     val scope = rememberCoroutineScope()
     val apiKey = getMetaData(context, "SUPABASE_API_KEY")
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background
     ) {
-        OutlinedTextField(
-            value = login,
-            onValueChange = {
-                login = it.filterNot { c -> c.isWhitespace() }
-            },
-            label = { Text("Login") },
-            modifier = Modifier.fillMaxWidth()
-        )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Zaloguj się",
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.padding(bottom = 24.dp)
+            )
 
-        Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = login,
+                onValueChange = {
+                    login = it.filterNot { c -> c.isWhitespace() }
+                },
+                label = { Text("Login") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
 
-        OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
-            label = { Text("Hasło") },
-            modifier = Modifier.fillMaxWidth(),
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
-        )
+            Spacer(modifier = Modifier.height(12.dp))
 
-        Spacer(modifier = Modifier.height(16.dp))
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it },
+                label = { Text("Hasło") },
+                modifier = Modifier.fillMaxWidth(),
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+            )
 
-        Button(onClick = {
-            scope.launch {
-                val (success, userId) = checkLogin(login, hashPassword(password), apiKey)
-                Toast.makeText(context, "as ${userId}", Toast.LENGTH_SHORT).show()
-                if (success && userId != null) {
-                    val sharedPreferences = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-                    sharedPreferences.edit() {
-                        putInt("user_id", userId)
+            Spacer(modifier = Modifier.height(16.dp))
+
+            var isLoading by remember { mutableStateOf(false) }
+
+            Button(onClick = {
+                isLoading = true
+                scope.launch {
+                    val (success, userId) = checkLogin(login, hashPassword(password), apiKey)
+                    isLoading = false
+                    if (success && userId != null) {
+                        val sharedPreferences =
+                            context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+                        sharedPreferences.edit() {
+                            putInt("user_id", userId)
+                        }
+                        onLoginSuccess()
+                    } else {
+                        Toast.makeText(context, "Błędny login lub hasło", Toast.LENGTH_LONG).show()
                     }
-                    onLoginSuccess()
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !isLoading
+
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier
+                            .size(20.dp)
+                            .padding(end = 8.dp)
+                    )
+                    Text("Logowanie...")
                 } else {
-                    Toast.makeText(context, "Błędny login lub hasło", Toast.LENGTH_LONG).show()
+                    Text("Zaloguj")
                 }
             }
-        }) {
-            Text("Zaloguj")
         }
     }
 }
