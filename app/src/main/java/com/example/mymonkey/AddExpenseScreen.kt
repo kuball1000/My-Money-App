@@ -18,12 +18,15 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun AddExpenseScreen(
+    initialDesc: String,
+    initialAmount: Double,
+    initialLocation: String,
     onAdd: (String, Double, String) -> Unit,
     onCancel: () -> Unit
 ) {
-    var description by remember { mutableStateOf("") }
-    var amountText by remember { mutableStateOf("") }
-    var locationText by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf(initialDesc) }
+    var amountText by remember { mutableStateOf(initialAmount.toString()) }
+    var locationText by remember { mutableStateOf(initialLocation) }
     val context = LocalContext.current
     val apiKey = getMetaData(context, "SUPABASE_API_KEY")
     val coordinates = Regex("\\(([^)]+)\\)").find(locationText)?.groupValues?.get(1) ?: ""
@@ -112,7 +115,6 @@ fun AddExpenseScreen(
                             val locationName = locationText.substringBefore(" (").trim()
                             val coordinates = Regex("\\(([^)]+)\\)").find(locationText)?.groupValues?.get(1) ?: ""
 
-//                            onAdd(description, amount, locationText) // lokalnie
 
                             scope.launch {
                                 val success = sendExpenseToSupabase(
