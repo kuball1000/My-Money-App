@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import com.example.mymonkey.network.sendExpenseToSupabase
 import com.example.mymonkey.ui.theme.MyMonkeyTheme
 import kotlinx.coroutines.launch
 
