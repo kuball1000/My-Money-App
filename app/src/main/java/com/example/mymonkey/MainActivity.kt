@@ -75,20 +75,23 @@ fun ExpenseApp() {
             )
         }
         composable(
-            "edit/{desc}/{amount}/{location}/{coordinates}",
+            "edit/{id}/{desc}/{amount}/{location}/{coordinates}",
             arguments = listOf(
+                navArgument("id") { type = NavType.IntType },
                 navArgument("desc") { type = NavType.StringType },
                 navArgument("amount") { type = NavType.StringType },
                 navArgument("location") { type = NavType.StringType },
                 navArgument("coordinates") { type = NavType.StringType },
             )
         ) { backStackEntry ->
+            val id = backStackEntry.arguments?.getInt("id")
             val desc = backStackEntry.arguments?.getString("desc") ?: ""
             val amount = backStackEntry.arguments?.getString("amount")?.toDoubleOrNull() ?: 0.0
             val location = backStackEntry.arguments?.getString("location") ?: ""
             val coordinates = backStackEntry.arguments?.getString("coordinates") ?: ""
 
             AddExpenseScreen(
+                expenseId = id,
                 initialDesc = desc,
                 initialAmount = amount,
                 initialLocation = "$location ($coordinates)",

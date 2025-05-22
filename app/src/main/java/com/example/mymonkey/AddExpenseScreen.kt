@@ -13,12 +13,14 @@ import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.example.mymonkey.network.sendExpenseToSupabase
+import com.example.mymonkey.network.updateExpenseInSupabase
 import com.example.mymonkey.ui.theme.MyMonkeyTheme
 import kotlinx.coroutines.launch
 
 
 @Composable
 fun AddExpenseScreen(
+    expenseId: Int? = null,
     initialDesc: String,
     initialAmount: Double,
     initialLocation: String,
@@ -118,14 +120,25 @@ fun AddExpenseScreen(
 
 
                             scope.launch {
-                                val success = sendExpenseToSupabase(
-                                    userId = userId,
-                                    description = description,
-                                    amount = amount,
-                                    location = locationName,
-                                    coordinates = coordinates,
-                                    apiKey = apiKey
-                                )
+                                val success = if (expenseId != null) {
+                                    updateExpenseInSupabase(
+                                        id = expenseId,
+                                        description = description,
+                                        amount = amount,
+                                        location = locationName,
+                                        coordinates = coordinates,
+                                        apiKey = apiKey
+                                    )
+                                } else {
+                                    sendExpenseToSupabase(
+                                        userId = userId,
+                                        description = description,
+                                        amount = amount,
+                                        location = locationName,
+                                        coordinates = coordinates,
+                                        apiKey = apiKey
+                                    )
+                                }
                                 if (!success) {
                                     Toast.makeText(context, "Błąd zapisu do bazy", Toast.LENGTH_SHORT).show()
                                 }

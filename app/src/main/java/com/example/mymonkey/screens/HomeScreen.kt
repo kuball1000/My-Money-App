@@ -35,7 +35,7 @@ fun HomeScreenWithHandlers(navController: NavHostController) {
         expenses = expensesState,
         onAddExpenseClick = { navController.navigate("add") },
         onEditExpense = { expense ->
-            navController.navigate("edit/${expense.description}/${expense.amount}/${expense.location}/${expense.coordinates}")
+            navController.navigate("edit/${expense.id}/${expense.description}/${expense.amount}/${expense.location}/${expense.coordinates}")
         },
         onDeleteExpense = { expense ->
             scope.launch {

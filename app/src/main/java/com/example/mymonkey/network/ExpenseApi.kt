@@ -116,3 +116,38 @@ suspend fun deleteExpenseFromSupabase(
         }
     }
 }
+
+
+suspend fun updateExpenseInSupabase(
+    id: Int,
+    description: String,
+    amount: Double,
+    location: String,
+    coordinates: String,
+    apiKey: String?
+): Boolean {
+    return withContext(Dispatchers.IO) {
+        try {
+            val json = JSONObject().apply {
+                put("description", description)
+                put("amount", amount)
+                put("location", location)
+                put("coordinates", coordinates)
+            }
+
+            val request = Request.Builder()
+                .url("https://hveselshovofxxwuozqj.supabase.co/rest/v1/expenses?id=eq.$id")
+                .patch(json.toString().toRequestBody("application/json".toMediaType()))
+                .header("apikey", apiKey ?: "")
+                .header("Authorization", "Bearer ${apiKey ?: ""}")
+                .header("Content-Type", "application/json")
+                .build()
+
+            val response = OkHttpClient().newCall(request).execute()
+            response.isSuccessful
+        } catch (e: Exception) {
+            false
+        }
+    }
+}
+
