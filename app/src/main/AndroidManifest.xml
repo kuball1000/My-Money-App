@@ -38,6 +38,10 @@
             android:name="SUPABASE_API_KEY"
             android:value="${SUPABASE_API_KEY}" />
 
+        <meta-data
+            android:name="COINGECKO_API_KEY"
+            android:value="${COINGECKO_API_KEY}" />
+
     </application>
 
 </manifest>

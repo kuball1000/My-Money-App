@@ -31,9 +31,8 @@ fun MainDashboardScreen(
                 modifier = Modifier.padding(vertical = 16.dp)
             )
 
-            // Przykładowe zdjęcie — zamień na własne
             Image(
-                painter = painterResource(id = R.drawable.ic_launcher_foreground),
+                painter = painterResource(id = R.drawable.dziko),
                 contentDescription = "Obraz tytułowy",
                 modifier = Modifier
                     .size(180.dp)

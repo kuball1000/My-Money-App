@@ -26,7 +26,14 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
+import com.example.mymonkey.cache.getCachedCryptos
+import com.example.mymonkey.cache.refreshCryptoCache
+import com.example.mymonkey.dataType.Crypto
+import com.example.mymonkey.dataType.CryptoWithPrice
 import com.example.mymonkey.dataType.Expense
+import com.example.mymonkey.network.deleteCryptoFromSupabase
+import com.example.mymonkey.network.fetchCryptoPrice
+import com.example.mymonkey.screens.CryptoScreen
 import com.example.mymonkey.screens.HomeScreenWithHandlers
 import com.example.mymonkey.ui.theme.MyMonkeyTheme
 import kotlinx.coroutines.Dispatchers
@@ -107,5 +114,188 @@ fun ExpenseApp() {
                 onNavigateToSummary = { /* TODO */ }
             )
         }
+        composable("crypto") {
+            var cryptoList by remember { mutableStateOf<List<Crypto>>(emptyList()) }
+            var cryptoWithPrices by remember { mutableStateOf<List<CryptoWithPrice>>(emptyList()) }
+
+            val context = LocalContext.current
+            val scope = rememberCoroutineScope()
+            val sharedPreferences = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+            val savedStateHandle = navController.currentBackStackEntry?.savedStateHandle
+            val newCrypto = savedStateHandle?.get<Crypto>("new_crypto")
+            var isLoading by remember { mutableStateOf(true) }
+
+            val coinMap = mapOf(
+                "bitcoin" to "bitcoin",
+                "ethereum" to "ethereum",
+                "xrp" to "ripple",
+                "dogecoin" to "dogecoin"
+            )
+            val prices = mutableMapOf<String, Double>()
+
+            LaunchedEffect(newCrypto) {
+                newCrypto?.let {
+                    cryptoList = cryptoList + it
+                    savedStateHandle.remove<Crypto>("new_crypto")
+                }
+            }
+
+            LaunchedEffect(Unit) {
+                isLoading = true
+                refreshCryptoCache(context)
+                val cached = getCachedCryptos(context)
+                val coinMap = mapOf(
+                    "bitcoin" to "bitcoin",
+                    "ethereum" to "ethereum",
+                    "xrp" to "ripple",
+                    "dogecoin" to "dogecoin"
+                )
+
+                val prices = mutableMapOf<String, Double>()
+
+                for (crypto in cached) {
+                    val id = coinMap[crypto.name.lowercase()] ?: continue
+                    val price = fetchCryptoPrice(context, crypto.name)
+                    prices[crypto.name.lowercase()] = price
+                }
+
+                cryptoWithPrices = cached.map {
+                    CryptoWithPrice(it, prices[it.name.lowercase()] ?: 0.0)
+                }
+
+                isLoading = false
+            }
+
+            val updatedCrypto = savedStateHandle?.get<Crypto>("updated_crypto")
+            LaunchedEffect(updatedCrypto) {
+                updatedCrypto?.let {
+                    isLoading = true
+                    refreshCryptoCache(context)
+                    val cached = getCachedCryptos(context)
+                    cryptoList = cached
+
+                    val prices = mutableMapOf<String, Double>()
+                    val coinMap = mapOf(
+                        "bitcoin" to "bitcoin",
+                        "ethereum" to "ethereum",
+                        "xrp" to "ripple",
+                        "dogecoin" to "dogecoin"
+                    )
+
+                    for (crypto in cached) {
+                        val id = coinMap[crypto.name.lowercase()] ?: continue
+                        val price = fetchCryptoPrice(context, crypto.name)
+                        prices[crypto.name.lowercase()] = price
+                    }
+
+                    cryptoWithPrices = cached.map {
+                        CryptoWithPrice(it, prices[it.name.lowercase()] ?: 0.0)
+                    }
+                    isLoading = false
+                    savedStateHandle.remove<Crypto>("updated_crypto")
+                }
+            }
+
+
+            CryptoScreen(
+                cryptoList = cryptoWithPrices,
+                isLoading = isLoading,
+                onAddClick = { navController.navigate("add_crypto") },
+                onEditCrypto = { crypto ->
+                    navController.navigate("edit_crypto/${crypto.id}/${crypto.name}/${crypto.buyPrice.toFloat()}/${crypto.amount.toFloat()}")
+                },
+                onDeleteCrypto = { crypto ->
+                    scope.launch {
+                        val apiKey = getMetaData(context, "SUPABASE_API_KEY") ?: return@launch
+                        val success = deleteCryptoFromSupabase(crypto.id, apiKey)
+                        if (success) {
+                            refreshCryptoCache(context)
+                            val cached = getCachedCryptos(context)
+
+                            cryptoList = cached
+
+
+                            for (item in cached) {
+                                val id = coinMap[item.name.lowercase()] ?: continue
+                                val price = fetchCryptoPrice(context, item.name)
+                                prices[item.name.lowercase()] = price
+                            }
+                            cryptoWithPrices = cached.map {
+                                CryptoWithPrice(it, prices[it.name.lowercase()] ?: 0.0)
+                            }
+
+                            // aktualizuj cache
+                            val current = sharedPreferences.getString("cached_cryptos", null)
+                            current?.let {
+                                val updatedArray = JSONArray(it).let { arr ->
+                                    JSONArray().apply {
+                                        for (i in 0 until arr.length()) {
+                                            val obj = arr.getJSONObject(i)
+                                            if (obj.getInt("id") != crypto.id) {
+                                                put(obj)
+                                            }
+                                        }
+                                    }
+                                }
+                                sharedPreferences.edit().putString("cached_cryptos", updatedArray.toString()).apply()
+                            }
+                            val coinMap = mapOf(
+                                "bitcoin" to "bitcoin",
+                                "ethereum" to "ethereum",
+                                "xrp" to "ripple",
+                                "dogecoin" to "dogecoin"
+                            )
+                            val prices = mutableMapOf<String, Double>()
+                            for (crypto in cryptoList) {
+                                val id = coinMap[crypto.name.lowercase()] ?: continue
+                                val price = fetchCryptoPrice(context, crypto.name)
+                                prices[crypto.name.lowercase()] = price
+                            }
+                            cryptoWithPrices = cryptoList.map {
+                                CryptoWithPrice(it, prices[it.name.lowercase()] ?: 0.0)
+                            }
+                        }
+                    }
+                }
+            )
+        }
+
+
+        composable("add_crypto") {
+            AddCryptoScreen(
+                onAdd = { newCrypto ->
+                    navController.previousBackStackEntry?.savedStateHandle?.set("new_crypto", newCrypto)
+                    navController.popBackStack()
+                },
+                onCancel = { navController.popBackStack() }
+            )
+        }
+        composable(
+            "edit_crypto/{id}/{name}/{buyPrice}/{amount}",
+            arguments = listOf(
+                navArgument("id") { type = NavType.IntType },
+                navArgument("name") { type = NavType.StringType },
+                navArgument("buyPrice") { type = NavType.FloatType },
+                navArgument("amount") { type = NavType.FloatType }
+            )
+        ) { backStackEntry ->
+            val id = backStackEntry.arguments!!.getInt("id")
+            val name = backStackEntry.arguments!!.getString("name") ?: ""
+            val buyPrice = backStackEntry.arguments!!.getFloat("buyPrice").toDouble()
+            val amount = backStackEntry.arguments!!.getFloat("amount").toDouble()
+
+            AddCryptoScreen(
+                editingId = id,
+                initialName = name,
+                initialPrice = buyPrice,
+                initialAmount = amount,
+                onAdd = { updated ->
+                    navController.previousBackStackEntry?.savedStateHandle?.set("updated_crypto", updated)
+                    navController.popBackStack()
+                },
+                onCancel = { navController.popBackStack() }
+            )
+        }
+
     }
 }
