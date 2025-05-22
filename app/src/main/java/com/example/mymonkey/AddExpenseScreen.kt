@@ -14,7 +14,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.example.mymonkey.network.sendExpenseToSupabase
 import com.example.mymonkey.network.updateExpenseInSupabase
-import com.example.mymonkey.ui.theme.MyMonkeyTheme
 import kotlinx.coroutines.launch
 
 
@@ -31,7 +30,8 @@ fun AddExpenseScreen(
     var amountText by remember { mutableStateOf(initialAmount.toString()) }
     var locationText by remember { mutableStateOf(initialLocation) }
     val context = LocalContext.current
-    val apiKey = getMetaData(context, "SUPABASE_API_KEY")
+    val scope = rememberCoroutineScope()
+    var showSuccessDialog by remember { mutableStateOf(false) }
     val coordinates = Regex("\\(([^)]+)\\)").find(locationText)?.groupValues?.get(1) ?: ""
 
     val launcher = rememberLauncherForActivityResult(
@@ -47,7 +47,6 @@ fun AddExpenseScreen(
         }
     }
 
-    // 👇 Surface to apply MaterialTheme color background
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
@@ -57,7 +56,10 @@ fun AddExpenseScreen(
                 .fillMaxSize()
                 .padding(16.dp)
         ) {
-            Text("Dodaj nowy wydatek", style = MaterialTheme.typography.headlineSmall)
+            Text(
+                text = if (expenseId == null) "Dodaj nowy wydatek" else "Edytuj wydatek",
+                style = MaterialTheme.typography.headlineSmall
+            )
 
             OutlinedTextField(
                 value = description,
@@ -139,7 +141,9 @@ fun AddExpenseScreen(
                                         apiKey = apiKey
                                     )
                                 }
-                                if (!success) {
+                                if (success) {
+                                    showSuccessDialog = true
+                                } else {
                                     Toast.makeText(context, "Błąd zapisu do bazy", Toast.LENGTH_SHORT).show()
                                 }
                             }
@@ -149,9 +153,24 @@ fun AddExpenseScreen(
                     },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("Dodaj")
+                    Text(if (expenseId == null) "Dodaj" else "Zapisz zmiany")
                 }
             }
+        }
+        if (showSuccessDialog) {
+            AlertDialog(
+                onDismissRequest = { showSuccessDialog = false; onAdd(description, amountText.toDouble(), locationText) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showSuccessDialog = false
+                        onAdd(description, amountText.toDouble(), locationText)
+                    }) {
+                        Text("OK")
+                    }
+                },
+                title = { Text("Sukces") },
+                text = { Text("Dane zostały zapisane") }
+            )
         }
     }
 }
