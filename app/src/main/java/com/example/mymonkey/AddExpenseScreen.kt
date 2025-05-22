@@ -10,14 +10,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import android.content.Intent
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import com.example.mymonkey.ui.theme.MyMonkeyTheme
+import com.example.mymonkey.network.sendExpenseToSupabase
+import com.example.mymonkey.network.updateExpenseInSupabase
 import kotlinx.coroutines.launch
 
 
 @Composable
 fun AddExpenseScreen(
+    expenseId: Int? = null,
     initialDesc: String,
     initialAmount: Double,
     initialLocation: String,
@@ -28,23 +31,25 @@ fun AddExpenseScreen(
     var amountText by remember { mutableStateOf(initialAmount.toString()) }
     var locationText by remember { mutableStateOf(initialLocation) }
     val context = LocalContext.current
-    val apiKey = getMetaData(context, "SUPABASE_API_KEY")
+    val scope = rememberCoroutineScope()
+    var showSuccessDialog by remember { mutableStateOf(false) }
     val coordinates = Regex("\\(([^)]+)\\)").find(locationText)?.groupValues?.get(1) ?: ""
 
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
+        if (result.resultCode == Activity.RESULT_OK && result.data != null) {
             val lat = result.data?.getDoubleExtra("lat", 0.0)
             val lng = result.data?.getDoubleExtra("lng", 0.0)
             val title = result.data?.getStringExtra("title") ?: "Brak danych"
             if (lat != null && lng != null) {
                 locationText = "$title ($lat, $lng)"
             }
+        } else {
+             Log.w("AddExpenseScreen", "Nie otrzymano danych z MapActivity")
         }
     }
 
-    // 👇 Surface to apply MaterialTheme color background
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
@@ -54,7 +59,10 @@ fun AddExpenseScreen(
                 .fillMaxSize()
                 .padding(16.dp)
         ) {
-            Text("Dodaj nowy wydatek", style = MaterialTheme.typography.headlineSmall)
+            Text(
+                text = if (expenseId == null) "Dodaj nowy wydatek" else "Edytuj wydatek",
+                style = MaterialTheme.typography.headlineSmall
+            )
 
             OutlinedTextField(
                 value = description,
@@ -117,15 +125,28 @@ fun AddExpenseScreen(
 
 
                             scope.launch {
-                                val success = sendExpenseToSupabase(
-                                    userId = userId,
-                                    description = description,
-                                    amount = amount,
-                                    location = locationName,
-                                    coordinates = coordinates,
-                                    apiKey = apiKey
-                                )
-                                if (!success) {
+                                val success = if (expenseId != null) {
+                                    updateExpenseInSupabase(
+                                        id = expenseId,
+                                        description = description,
+                                        amount = amount,
+                                        location = locationName,
+                                        coordinates = coordinates,
+                                        apiKey = apiKey
+                                    )
+                                } else {
+                                    sendExpenseToSupabase(
+                                        userId = userId,
+                                        description = description,
+                                        amount = amount,
+                                        location = locationName,
+                                        coordinates = coordinates,
+                                        apiKey = apiKey
+                                    )
+                                }
+                                if (success) {
+                                    showSuccessDialog = true
+                                } else {
                                     Toast.makeText(context, "Błąd zapisu do bazy", Toast.LENGTH_SHORT).show()
                                 }
                             }
@@ -135,9 +156,24 @@ fun AddExpenseScreen(
                     },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("Dodaj")
+                    Text(if (expenseId == null) "Dodaj" else "Zapisz zmiany")
                 }
             }
+        }
+        if (showSuccessDialog) {
+            AlertDialog(
+                onDismissRequest = { showSuccessDialog = false; onAdd(description, amountText.toDouble(), locationText) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showSuccessDialog = false
+                        onAdd(description, amountText.toDouble(), locationText)
+                    }) {
+                        Text("OK")
+                    }
+                },
+                title = { Text("Sukces") },
+                text = { Text("Dane zostały zapisane") }
+            )
         }
     }
 }
