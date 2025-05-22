@@ -1,4 +1,3 @@
-// screens/HomeScreen.kt
 package com.example.mymonkey.screens
 
 import android.content.Context
@@ -65,9 +64,11 @@ fun HomeScreen(
     val userId = sharedPreferences.getInt("user_id", -1)
     val scope = rememberCoroutineScope()
     val deletingIds = remember { mutableStateListOf<Int>() }
+    var isLoading by remember { mutableStateOf(true) }
 
     LaunchedEffect(userId) {
         if (userId != -1 && apiKey != null) {
+            isLoading = true
             val fetched = fetchExpensesForUser(userId, apiKey)
             expenses.clear()
             expenses.addAll(fetched)
@@ -89,6 +90,7 @@ fun HomeScreen(
             sharedPreferences.edit()
                 .putString("cached_expenses", cachedJson)
                 .apply()
+            isLoading = false
         }
     }
 
@@ -101,69 +103,83 @@ fun HomeScreen(
             }
         }
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .padding(padding)
-                .padding(16.dp)
+                .fillMaxSize()
         ) {
-            Text(
-                text = "Suma: ${String.format("%.2f", total)} zł",
-                style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
+            if (isLoading) {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(64.dp), strokeWidth = 6.dp)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Ładowanie danych...", style = MaterialTheme.typography.bodyLarge)
+                }
+            } else {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Suma: ${String.format("%.2f", total)} zł",
+                        style = MaterialTheme.typography.headlineMedium,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
 
-            LazyColumn {
-                items(expenses) { expense ->
-                    val isDeleting = expense.id in deletingIds
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp)
-                            .clickable(enabled = !isDeleting) { onEditExpense(expense) },
-                        elevation = CardDefaults.cardElevation(4.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text(expense.description, style = MaterialTheme.typography.titleMedium)
-                                Text("${String.format("%.2f", expense.amount)} zł", style = MaterialTheme.typography.bodyMedium)
-                                Text("Lokalizacja: ${expense.location}", style = MaterialTheme.typography.bodySmall)
-                                Text("Koordynaty: ${expense.coordinates}", style = MaterialTheme.typography.bodySmall)
-                            }
-                            if (isDeleting) {
-                                CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                            } else {
-                                IconButton(onClick = {
-                                    deletingIds.add(expense.id)
-                                    scope.launch {
-                                        expenses.remove(expense)
-                                        val current = sharedPreferences.getString("cached_expenses", null)
-                                        current?.let {
-                                            val updatedArray = JSONArray(it).let { arr ->
-                                                JSONArray().apply {
-                                                    for (i in 0 until arr.length()) {
-                                                        val obj = arr.getJSONObject(i)
-                                                        if (obj.getInt("id") != expense.id) {
-                                                            put(obj)
+                    LazyColumn {
+                        items(expenses) { expense ->
+                            val isDeleting = expense.id in deletingIds
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                                    .clickable(enabled = !isDeleting) { onEditExpense(expense) },
+                                elevation = CardDefaults.cardElevation(4.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Text(expense.description, style = MaterialTheme.typography.titleMedium)
+                                        Text("${String.format("%.2f", expense.amount)} zł", style = MaterialTheme.typography.bodyMedium)
+                                        Text("Lokalizacja: ${expense.location}", style = MaterialTheme.typography.bodySmall)
+                                        Text("Koordynaty: ${expense.coordinates}", style = MaterialTheme.typography.bodySmall)
+                                    }
+                                    if (isDeleting) {
+                                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                                    } else {
+                                        IconButton(onClick = {
+                                            deletingIds.add(expense.id)
+                                            scope.launch {
+                                                expenses.remove(expense)
+                                                val current = sharedPreferences.getString("cached_expenses", null)
+                                                current?.let {
+                                                    val updatedArray = JSONArray(it).let { arr ->
+                                                        JSONArray().apply {
+                                                            for (i in 0 until arr.length()) {
+                                                                val obj = arr.getJSONObject(i)
+                                                                if (obj.getInt("id") != expense.id) {
+                                                                    put(obj)
+                                                                }
+                                                            }
                                                         }
                                                     }
+                                                    sharedPreferences.edit().putString("cached_expenses", updatedArray.toString()).apply()
                                                 }
+                                                onDeleteExpense(expense)
+                                                deletingIds.remove(expense.id)
                                             }
-                                            sharedPreferences.edit().putString("cached_expenses", updatedArray.toString()).apply()
+                                        }) {
+                                            Icon(
+                                                imageVector = Icons.Default.Delete,
+                                                contentDescription = "Usuń"
+                                            )
                                         }
-                                        onDeleteExpense(expense)
-                                        deletingIds.remove(expense.id)
                                     }
-                                }) {
-                                    Icon(
-                                        imageVector = Icons.Default.Delete,
-                                        contentDescription = "Usuń"
-                                    )
                                 }
                             }
                         }

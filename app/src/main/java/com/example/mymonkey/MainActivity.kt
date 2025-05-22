@@ -60,7 +60,7 @@ fun ExpenseApp() {
 
     NavHost(navController = navController, startDestination = "login") {
         composable("login") {
-            LoginScreen(onLoginSuccess = { navController.navigate("home") })
+            LoginScreen(onLoginSuccess = { navController.navigate("dashboard") })
         }
         composable("home") {
             HomeScreenWithHandlers(navController)
@@ -97,6 +97,14 @@ fun ExpenseApp() {
                 initialLocation = "$location ($coordinates)",
                 onAdd = { _, _, _ -> navController.popBackStack() },
                 onCancel = { navController.popBackStack() }
+            )
+        }
+        composable("dashboard") {
+            MainDashboardScreen(
+                onNavigateToExpenses = { navController.navigate("home") },
+                onNavigateToCrypto = { navController.navigate("crypto") },
+                onNavigateToInvestments = { /* TODO */ },
+                onNavigateToSummary = { /* TODO */ }
             )
         }
     }

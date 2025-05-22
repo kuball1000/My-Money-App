@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import android.content.Intent
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.example.mymonkey.network.sendExpenseToSupabase
@@ -37,13 +38,15 @@ fun AddExpenseScreen(
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
+        if (result.resultCode == Activity.RESULT_OK && result.data != null) {
             val lat = result.data?.getDoubleExtra("lat", 0.0)
             val lng = result.data?.getDoubleExtra("lng", 0.0)
             val title = result.data?.getStringExtra("title") ?: "Brak danych"
             if (lat != null && lng != null) {
                 locationText = "$title ($lat, $lng)"
             }
+        } else {
+             Log.w("AddExpenseScreen", "Nie otrzymano danych z MapActivity")
         }
     }
 
