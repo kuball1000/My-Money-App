@@ -1,4 +1,3 @@
-// network/ExpenseApi.kt
 package com.example.mymonkey.network
 
 import com.example.mymonkey.dataType.Expense
